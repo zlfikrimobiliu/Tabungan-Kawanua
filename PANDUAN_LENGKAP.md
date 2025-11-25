@@ -40,7 +40,7 @@ Di halaman konfigurasi, scroll ke **Environment Variables**, tambahkan:
 
 ```
 JSONBIN_BIN_ID = 6924a61743b1c97be9c2985e
-JSONBIN_API_KEY = $2a$10$2lv9FE3jMqDlptKS1uyKnOhck4/sGqnE86mch8iSCILZ7ks2H1Fdi
+JSONBIN_API_KEY = $2a$10$2lv9FE3jMqDlptKS1uyKnOhck4/sGqnE86mch8iSCILZ7ks2H1Fdi ganti ke -> $2a$10$kZ5crTSrc.crKA.Hyh4zyeRg0O65.l4Yrzwh6cJTyaYchieQeCe8K
 NEXT_PUBLIC_IMGBB_API_KEY = 03b8de054b52ea6fce573ee060ce9844
 ```
 

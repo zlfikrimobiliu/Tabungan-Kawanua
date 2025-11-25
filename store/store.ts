@@ -565,11 +565,22 @@ export const useStore = create<AppState>()(
             }),
           });
           
-          if (!response.ok) throw new Error("Failed to update server");
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { error: errorText };
+            }
+            throw new Error(`Failed to update server: ${errorData.error || errorData.details || response.statusText}`);
+          }
           
           const result = await response.json();
           if (result.success) {
             console.log("Data pushed to server successfully");
+          } else {
+            console.warn("Server response:", result);
           }
         } catch (error) {
           console.error("Error pushing to server:", error);

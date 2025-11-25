@@ -123,10 +123,23 @@ export async function POST(request: NextRequest) {
             message: "Data saved successfully (new bin created)",
             binId: created.metadata?.id,
           });
+        } else {
+          const errorText = await createResponse.text();
+          throw new Error(`Failed to create bin: ${createResponse.status} - ${errorText}`);
         }
       }
 
-      throw new Error(`JSONBin.io error: ${response.status}`);
+      // Coba ambil error message dari response
+      let errorMessage = `JSONBin.io error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        // Jika tidak bisa parse JSON, gunakan status text
+        errorMessage = `JSONBin.io error: ${response.status} ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
