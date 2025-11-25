@@ -88,10 +88,10 @@ export default function Home() {
       return () => clearTimeout(timer);
     });
 
-    // Setup interval untuk auto-sync setiap 10 detik (optimasi performa)
+    // Setup interval untuk auto-sync setiap 5 detik (balance antara performa dan responsivitas)
     const syncInterval = setInterval(() => {
       syncWithServer();
-    }, 10000);
+    }, 5000);
 
     return () => {
       clearInterval(syncInterval);

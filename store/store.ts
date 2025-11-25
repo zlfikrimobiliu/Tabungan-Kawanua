@@ -209,6 +209,11 @@ export const useStore = create<AppState>()(
                 }
               }, 100);
             }
+            
+            // Push perubahan ke server setelah update selesai
+            setTimeout(() => {
+              get().pushToServer();
+            }, 200);
           }, 100);
         }
       },
