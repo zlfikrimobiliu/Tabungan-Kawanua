@@ -98,6 +98,29 @@ export default function Home() {
     };
   }, [initializeData, syncWithServer]);
 
+  // Sync saat tab menjadi aktif atau window fokus
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncWithServer();
+      }
+    };
+
+    const handleFocus = () => {
+      syncWithServer();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [syncWithServer]);
+
   // Prevent hydration mismatch
   if (!isMounted) {
     return (

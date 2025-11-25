@@ -35,7 +35,7 @@ export default function EditMemberModal({
 
   if (!member) return null;
 
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
     if (!name.trim()) {
@@ -62,8 +62,14 @@ export default function EditMemberModal({
       updatedData.phone = undefined;
     }
 
-    // Panggil updateMember dan pastikan state ter-update
-    updateMember(memberId, updatedData);
+    try {
+      // Panggil updateMember dan pastikan state ter-update
+      await updateMember(memberId, updatedData);
+    } catch (error) {
+      console.error("Gagal menyimpan perubahan anggota:", error);
+      alert("Gagal menyimpan perubahan. Silakan coba lagi.");
+      return;
+    }
     
     // Tampilkan toast notifikasi
     setShowToast(true);

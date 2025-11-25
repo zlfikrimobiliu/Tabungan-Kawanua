@@ -46,7 +46,7 @@ export interface AppState {
   // Actions
   setMembers: (members: Member[]) => void;
   addMember: (member: Omit<Member, "id" | "totalSaved" | "weeksReceived">) => void;
-  updateMember: (id: string, updates: Partial<Member>) => void;
+  updateMember: (id: string, updates: Partial<Member>) => Promise<void>;
   deleteMember: (id: string) => void;
   markReceived: (memberId: string, week: number) => void;
   unmarkReceived: (memberId: string, week: number) => void;
@@ -112,7 +112,14 @@ export const useStore = create<AppState>()(
         }, 100);
       },
 
-      updateMember: (id, updates) => {
+      updateMember: async (id, updates) => {
+        // Pastikan state terbaru sebelum melakukan update untuk mencegah konflik antar device
+        try {
+          await get().syncWithServer();
+        } catch (error) {
+          console.warn("Sync sebelum update gagal, lanjut dengan data lokal:", error);
+        }
+
         // Pastikan update benar-benar terjadi
         set((state) => {
           // Buat array baru untuk memastikan reference berubah
@@ -209,13 +216,13 @@ export const useStore = create<AppState>()(
                 }
               }, 100);
             }
-            
-            // Push perubahan ke server setelah update selesai
-            setTimeout(() => {
-              get().pushToServer();
-            }, 200);
           }, 100);
         }
+
+        // Push perubahan ke server setelah update selesai
+        setTimeout(() => {
+          get().pushToServer();
+        }, 200);
       },
 
       deleteMember: (id) => {
@@ -579,6 +586,12 @@ export const useStore = create<AppState>()(
           const result = await response.json();
           if (result.success) {
             console.log("Data pushed to server successfully");
+            // Setelah berhasil push, fetch ulang agar state sesuai dengan server
+            try {
+              await get().syncWithServer();
+            } catch (syncError) {
+              console.warn("Gagal sync setelah push:", syncError);
+            }
           } else {
             console.warn("Server response:", result);
           }
