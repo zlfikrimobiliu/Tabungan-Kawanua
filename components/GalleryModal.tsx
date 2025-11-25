@@ -117,8 +117,13 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
 
         const data = await response.json();
         
-        if (data.success && data.data?.url) {
-          return data.data.url;
+        if (data.success && data.data) {
+          // Gunakan URL langsung ke file gambar (bukan halaman ImgBB)
+          return (
+            data.data.image?.url || // Direct file URL
+            data.data.display_url || // Display URL
+            data.data.url // Fallback ke halaman (kurang ideal)
+          );
         } else {
           throw new Error("Upload gagal: URL tidak ditemukan");
         }
@@ -527,6 +532,9 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
                         exit={{ opacity: 0, x: -100 }}
                         src={currentImage.imageUrl}
                         alt={currentImage.name}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
                         className="max-w-full max-h-full object-contain p-2"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23ddd' width='400' height='300'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='20' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EGambar tidak dapat dimuat%3C/text%3E%3C/svg%3E";
@@ -617,6 +625,9 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
                               <img
                                 src={item.imageUrl}
                                 alt={item.name}
+                                loading="lazy"
+                                decoding="async"
+                                referrerPolicy="no-referrer"
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect fill='%23ddd' width='64' height='64'/%3E%3C/svg%3E";
