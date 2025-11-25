@@ -7,13 +7,40 @@ import { NextRequest, NextResponse } from "next/server";
 const JSONBIN_BIN_ID = process.env.JSONBIN_BIN_ID || "default-bin-id";
 const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY || "";
 
+const getTimeParts = (time: string): [number, number] => {
+  const [hours, minutes] = time.split(":").map((num) => parseInt(num, 10));
+  return [Number.isNaN(hours) ? 0 : hours, Number.isNaN(minutes) ? 0 : minutes];
+};
+
+const getNextOccurrence = (dayOfWeek: number, time: string, referenceDate: Date = new Date()): string => {
+  const [hours, minutes] = getTimeParts(time);
+  const date = new Date(referenceDate);
+  date.setSeconds(0, 0);
+  date.setHours(hours, minutes, 0, 0);
+
+  const diff = (dayOfWeek - date.getDay() + 7) % 7;
+  if (diff === 0 && date <= referenceDate) {
+    date.setDate(date.getDate() + 7);
+  } else if (diff !== 0) {
+    date.setDate(date.getDate() + diff);
+  }
+
+  return date.toISOString();
+};
+
+const defaultSchedule = {
+  dayOfWeek: 1,
+  time: "09:00",
+  startDate: getNextOccurrence(1, "09:00"),
+};
+
 // Default data structure
 const defaultData = {
   members: [],
   transactions: [],
   gallery: [],
   currentWeek: 1,
-  savingsSchedule: { dayOfWeek: 1, time: "09:00" },
+  savingsSchedule: defaultSchedule,
   adminEmail: "fikri.mobiliu@example.com",
   lastUpdated: new Date().toISOString(),
 };
@@ -72,13 +99,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { members, transactions, gallery, currentWeek, savingsSchedule, adminEmail } = body;
 
+    const scheduleInput = savingsSchedule || {};
+    const normalizedSchedule = {
+      dayOfWeek: scheduleInput.dayOfWeek ?? defaultSchedule.dayOfWeek,
+      time: scheduleInput.time ?? defaultSchedule.time,
+      startDate:
+        scheduleInput.startDate ??
+        getNextOccurrence(
+          scheduleInput.dayOfWeek ?? defaultSchedule.dayOfWeek,
+          scheduleInput.time ?? defaultSchedule.time
+        ),
+    };
+
     // Prepare data untuk disimpan
     const dataToSave = {
       members: members !== undefined ? members : defaultData.members,
       transactions: transactions !== undefined ? transactions : defaultData.transactions,
       gallery: gallery !== undefined ? gallery : defaultData.gallery,
       currentWeek: currentWeek !== undefined ? currentWeek : defaultData.currentWeek,
-      savingsSchedule: savingsSchedule !== undefined ? savingsSchedule : defaultData.savingsSchedule,
+      savingsSchedule: normalizedSchedule,
       adminEmail: adminEmail !== undefined ? adminEmail : defaultData.adminEmail,
       lastUpdated: new Date().toISOString(),
     };

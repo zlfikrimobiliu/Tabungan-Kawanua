@@ -5,6 +5,8 @@ import { useStore } from "@/store/store";
 import { CheckCircle2, Circle, Calendar, User, Edit2, Info } from "lucide-react";
 import { useState, memo } from "react";
 import EditMemberModal from "./EditMemberModal";
+import WeekScheduleModal from "./WeekScheduleModal";
+import { formatScheduleLabel, getWeekDate } from "@/lib/schedule";
 
 const MembersList = memo(function MembersList() {
   const {
@@ -12,9 +14,11 @@ const MembersList = memo(function MembersList() {
     currentWeek,
     isAdmin,
     getCurrentReceiver,
+    savingsSchedule,
   } = useStore();
 
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [showWeekSchedule, setShowWeekSchedule] = useState(false);
   const currentReceiver = getCurrentReceiver();
   const activeMembers = members.filter((m) => m.isActive);
 
@@ -53,12 +57,14 @@ const MembersList = memo(function MembersList() {
             <p className="text-xs text-gray-500 dark:text-gray-400">Kelola status tabungan anggota</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+        <button
+          onClick={() => setShowWeekSchedule(true)}
+          className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 text-sm font-semibold text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+          title="Lihat jadwal tanggal tiap minggu"
+        >
           <Calendar className="w-4 h-4 text-red-600 dark:text-red-400" />
-          <span className="text-sm font-semibold text-red-700 dark:text-red-400">
-            Minggu ke-{currentWeek}
-          </span>
-        </div>
+          <span>Minggu ke-{currentWeek}</span>
+        </button>
       </div>
 
       <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
@@ -72,9 +78,9 @@ const MembersList = memo(function MembersList() {
           const isCurrentReceiver = currentReceiver?.id === member.id;
           const received = hasReceived(member.id);
           const saved = hasSaved(member.id, currentWeek);
-          const weeksToReceive = Math.ceil(
-            (currentWeek - 1) / activeMembers.length
-          ) * activeMembers.length + (index + 1);
+          const weeksToReceive =
+            Math.ceil((currentWeek - 1) / activeMembers.length) * activeMembers.length + (index + 1);
+          const scheduleDate = formatScheduleLabel(getWeekDate(savingsSchedule, weeksToReceive));
 
           return (
             <motion.div
@@ -168,6 +174,14 @@ const MembersList = memo(function MembersList() {
                   )}
                 </motion.div>
 
+                {/* Detail Jadwal Mingguan */}
+                <div className="col-span-1 sm:col-span-2 p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                    Jadwal minggu ke-{weeksToReceive}
+                  </p>
+                  <p className="text-sm text-gray-800 dark:text-gray-100">{scheduleDate}</p>
+                </div>
+
                 {/* Status Menerima */}
                 {isCurrentReceiver && (
                   <motion.div
@@ -219,7 +233,7 @@ const MembersList = memo(function MembersList() {
 
               {!isCurrentReceiver && (
                 <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  Akan menerima pada minggu ke-{weeksToReceive}
+                  Akan menerima pada minggu ke-{weeksToReceive} ({scheduleDate})
                 </div>
               )}
             </motion.div>
@@ -235,6 +249,13 @@ const MembersList = memo(function MembersList() {
           onClose={() => setEditingMemberId(null)}
         />
       )}
+      <WeekScheduleModal
+        isOpen={showWeekSchedule}
+        onClose={() => setShowWeekSchedule(false)}
+        currentWeek={currentWeek}
+        totalWeeks={Math.max(activeMembers.length, currentWeek + 4)}
+        savingsSchedule={savingsSchedule}
+      />
     </motion.div>
   );
 });

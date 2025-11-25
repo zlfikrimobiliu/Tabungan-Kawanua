@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { adjustStartDateToSchedule, combineDateAndTime, getNextOccurrence } from "@/lib/schedule";
 
 export interface Member {
   id: string;
@@ -29,15 +30,18 @@ export interface GalleryItem {
   locationLink?: string; // Link lokasi
 }
 
+export interface SavingsSchedule {
+  dayOfWeek: number; // 0 = Sunday, 1 = Monday, dll.
+  time: string; // HH:mm format
+  startDate: string; // ISO string untuk minggu pertama
+}
+
 export interface AppState {
   members: Member[];
   transactions: Transaction[];
   gallery: GalleryItem[];
   currentWeek: number;
-  savingsSchedule: {
-    dayOfWeek: number; // 0 = Sunday, 1 = Monday, etc.
-    time: string; // HH:mm format
-  };
+  savingsSchedule: SavingsSchedule;
   adminEmail: string;
   adminPassword: string;
   isAdmin: boolean;
@@ -54,6 +58,7 @@ export interface AppState {
   unmarkSaved: (memberId: string, week: number) => void;
   getTotalAmount: () => number; // Total amount untuk penerima (jumlah anggota aktif × 100rb)
   setSavingsSchedule: (dayOfWeek: number, time: string) => void;
+  setSavingsStartDate: (date: string) => void;
   setCurrentWeek: (week: number) => void;
   setAdminEmail: (email: string) => void;
   setAdminPassword: (password: string) => void;
@@ -87,6 +92,7 @@ export const useStore = create<AppState>()(
       savingsSchedule: {
         dayOfWeek: 1, // Monday
         time: "09:00",
+        startDate: getNextOccurrence(1, "09:00").toISOString(),
       },
       adminEmail: "fikri.mobiliu@example.com",
       adminPassword: "", // Akan di-set dengan obfuscated default password saat pertama kali
@@ -366,9 +372,29 @@ export const useStore = create<AppState>()(
       },
 
       setSavingsSchedule: (dayOfWeek, time) => {
-        set({ savingsSchedule: { dayOfWeek, time } });
+        set((state) => ({
+          savingsSchedule: {
+            dayOfWeek,
+            time,
+            startDate: adjustStartDateToSchedule(state.savingsSchedule?.startDate, dayOfWeek, time),
+          },
+        }));
         
         // Push perubahan ke server
+        setTimeout(() => {
+          get().pushToServer();
+        }, 100);
+      },
+
+      setSavingsStartDate: (date) => {
+        if (!date) return;
+        set((state) => ({
+          savingsSchedule: {
+            ...state.savingsSchedule,
+            startDate: combineDateAndTime(date, state.savingsSchedule.time),
+          },
+        }));
+
         setTimeout(() => {
           get().pushToServer();
         }, 100);
@@ -518,6 +544,14 @@ export const useStore = create<AppState>()(
           const result = await response.json();
           if (result.success && result.data) {
             const serverData = result.data;
+            const serverSchedule = serverData.savingsSchedule || {};
+            const mergedSchedule: SavingsSchedule = {
+              dayOfWeek: serverSchedule.dayOfWeek ?? 1,
+              time: serverSchedule.time ?? "09:00",
+              startDate:
+                serverSchedule.startDate ||
+                getNextOccurrence(serverSchedule.dayOfWeek ?? 1, serverSchedule.time ?? "09:00"),
+            };
             
             // Update state dengan data dari server
             set({
@@ -525,7 +559,7 @@ export const useStore = create<AppState>()(
               transactions: serverData.transactions || [],
               gallery: serverData.gallery || [],
               currentWeek: serverData.currentWeek || 1,
-              savingsSchedule: serverData.savingsSchedule || { dayOfWeek: 1, time: "09:00" },
+              savingsSchedule: mergedSchedule,
               adminEmail: serverData.adminEmail || "fikri.mobiliu@example.com",
             });
             
@@ -540,7 +574,7 @@ export const useStore = create<AppState>()(
                   transactions: serverData.transactions || [],
                   gallery: serverData.gallery || [],
                   currentWeek: serverData.currentWeek || 1,
-                  savingsSchedule: serverData.savingsSchedule || { dayOfWeek: 1, time: "09:00" },
+                  savingsSchedule: mergedSchedule,
                   adminEmail: serverData.adminEmail || "fikri.mobiliu@example.com",
                 };
                 localStorage.setItem("tabungan-kawanua-storage", JSON.stringify(parsed));

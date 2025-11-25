@@ -13,6 +13,7 @@ const AdminPanel = memo(function AdminPanel() {
     setCurrentWeek,
     savingsSchedule,
     setSavingsSchedule,
+    setSavingsStartDate,
     adminEmail,
     setAdminEmail,
     getCurrentReceiver,
@@ -66,6 +67,14 @@ const AdminPanel = memo(function AdminPanel() {
     "Jumat",
     "Sabtu",
   ];
+
+  const formatDateInput = (iso?: string) => {
+    if (!iso) return "";
+    const date = new Date(iso);
+    const tzOffset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - tzOffset * 60 * 1000);
+    return localDate.toISOString().split("T")[0];
+  };
 
   return (
     <motion.div
@@ -149,6 +158,26 @@ const AdminPanel = memo(function AdminPanel() {
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
             />
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Hari & jam penarikan arisan.
+          </p>
+        </div>
+
+        {/* Tanggal Mulai */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Tanggal Mulai Minggu ke-1
+          </label>
+          <input
+            type="date"
+            value={formatDateInput(savingsSchedule.startDate)}
+            onChange={(e) => setSavingsStartDate(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Digunakan untuk menghitung tanggal setiap minggu. Ubah jika jadwal arisan dimulai dari tanggal tertentu.
+          </p>
         </div>
 
         {/* Set Email Admin */}

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useStore } from "@/store/store";
 import { TrendingUp, ArrowDownCircle, ArrowUpCircle, Info } from "lucide-react";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { memo, useMemo, useState, useEffect } from "react";
 import {
   BarChart,
@@ -192,7 +193,9 @@ const KasTraffic = memo(function KasTraffic() {
                     Rp {transaction.amount.toLocaleString("id-ID")}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {format(new Date(transaction.date), "dd MMM yyyy")}
+                    {format(new Date(transaction.date), "EEEE, dd MMM yyyy HH:mm", {
+                      locale: idLocale,
+                    })}
                   </p>
                 </div>
               </motion.div>

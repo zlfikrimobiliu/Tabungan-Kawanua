@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronLeft, ChevronRight, Plus, Trash2, Image as ImageIcon, MapPin, FileText, Download, Upload, Loader2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Trash2, Image as ImageIcon, MapPin, FileText, Download, Upload, Loader2, Edit } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useStore } from "@/store/store";
 
@@ -21,6 +21,7 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
   const [imagePreview, setImagePreview] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Reset form saat modal dibuka
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
       setNewLocationLink("");
       setSelectedFile(null);
       setImagePreview("");
+      setIsEditing(false);
     }
   }, [isOpen]);
 
@@ -296,6 +298,7 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
   };
 
   const currentImage = gallery[currentIndex];
+  const isAdminEditing = isAdmin && currentImage && isEditing;
 
   return (
     <AnimatePresence>
@@ -331,13 +334,30 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   {isAdmin && (
-                    <button
-                      onClick={() => setShowAddForm(!showAddForm)}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                      title="Tambah Gambar"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                        title="Tambah Gambar"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                      {currentImage && (
+                        <button
+                          onClick={() => {
+                            setIsEditing(!isEditing);
+                            setNewImageName(currentImage.name);
+                            setNewLocationLink(currentImage.locationLink || "");
+                          }}
+                          className={`p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all ${
+                            isEditing ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                          }`}
+                          title={isEditing ? "Batal Edit" : "Edit Gambar Ini"}
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                      )}
+                    </>
                   )}
                   <button
                     onClick={onClose}
@@ -587,25 +607,86 @@ export default function GalleryModal({ isOpen, onClose }: GalleryModalProps) {
 
                     {/* Image Info - Always Visible */}
                     <div className="p-3 md:p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
-                      <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-100 mb-2 break-words">
-                            {currentImage.name}
-                          </h3>
-                          {currentImage.locationLink && (
-                            <a
-                              href={currentImage.locationLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:underline transition-colors font-medium"
+                      {isAdminEditing ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!currentImage) return;
+                            if (!newImageName.trim()) {
+                              alert("Nama/deskripsi harus diisi");
+                              return;
+                            }
+                            deleteGalleryItem(currentImage.id);
+                            addGalleryItem({
+                              imageUrl: currentImage.imageUrl,
+                              name: newImageName.trim(),
+                              locationLink: newLocationLink.trim() || undefined,
+                            });
+                            setIsEditing(false);
+                          }}
+                          className="space-y-2"
+                        >
+                          <div>
+                            <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">
+                              Nama/Deskripsi
+                            </label>
+                            <input
+                              type="text"
+                              value={newImageName}
+                              onChange={(e) => setNewImageName(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">
+                              Link Lokasi (opsional)
+                            </label>
+                            <input
+                              type="url"
+                              value={newLocationLink}
+                              onChange={(e) => setNewLocationLink(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+                              placeholder="https://maps.google.com/..."
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsEditing(false)}
+                              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
-                              <MapPin className="w-4 h-4 flex-shrink-0" />
-                              <span>Lihat Lokasi di Maps</span>
-                            </a>
-                          )}
+                              Batal
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                            >
+                              Simpan
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="flex items-start gap-3">
+                          <FileText className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-100 mb-2 break-words">
+                              {currentImage.name}
+                            </h3>
+                            {currentImage.locationLink && (
+                              <a
+                                href={currentImage.locationLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:underline transition-colors font-medium"
+                              >
+                                <MapPin className="w-4 h-4 flex-shrink-0" />
+                                <span>Lihat Lokasi di Maps</span>
+                              </a>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Thumbnail Navigation */}
