@@ -35,7 +35,7 @@ const Dashboard = memo(function Dashboard() {
       title: "Total Tabungan",
       value: `Rp ${totalTabungan.toLocaleString("id-ID")}`,
       icon: PiggyBank,
-      color: "from-blue-500 to-blue-600",
+      color: "from-green-500 to-emerald-600",
     },
     {
       title: "Minggu Ke",

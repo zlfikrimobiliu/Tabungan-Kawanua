@@ -41,6 +41,7 @@ export interface AppState {
   transactions: Transaction[];
   gallery: GalleryItem[];
   currentWeek: number;
+  completedWeeks: number[]; // Minggu-minggu yang sudah dikonfirmasi selesai oleh admin
   savingsSchedule: SavingsSchedule;
   adminEmail: string;
   adminPassword: string;
@@ -56,6 +57,8 @@ export interface AppState {
   unmarkReceived: (memberId: string, week: number) => void;
   markSaved: (memberId: string, week: number) => void;
   unmarkSaved: (memberId: string, week: number) => void;
+  completeWeek: (week: number) => void; // Admin konfirmasi minggu selesai
+  uncompleteWeek: (week: number) => void; // Admin batalkan konfirmasi
   getTotalAmount: () => number; // Total amount untuk penerima (jumlah anggota aktif × 100rb)
   setSavingsSchedule: (dayOfWeek: number, time: string) => void;
   setSavingsStartDate: (date: string) => void;
@@ -74,6 +77,7 @@ export interface AppState {
   getCurrentReceiver: () => Member | null;
   addGalleryItem: (item: Omit<GalleryItem, "id">) => void;
   deleteGalleryItem: (id: string) => void;
+  getWeekReport: (week: number) => { totalSaved: number; totalReceived: number; kas: number; members: { name: string; saved: number; received: number }[] };
 }
 
 const defaultMembers: Member[] = [
@@ -91,6 +95,7 @@ export const useStore = create<AppState>()(
       transactions: [],
       gallery: [],
       currentWeek: 1,
+      completedWeeks: [],
       savingsSchedule: {
         dayOfWeek: 1, // Monday
         time: "09:00",
@@ -504,16 +509,109 @@ export const useStore = create<AppState>()(
 
       getTotalKas: () => {
         const state = get();
-        const totalSaved = state.members.reduce((sum, m) => sum + m.totalSaved, 0);
-        const totalReceived = state.transactions
-          .filter((t) => t.type === "receiving")
-          .reduce((sum, t) => sum + t.amount, 0);
-        return totalSaved - totalReceived;
+        const activeMembers = state.members.filter((m) => m.isActive);
+        const activeMembersCount = activeMembers.length;
+        
+        // Hitung total tabungan per minggu yang belum selesai
+        let totalKas = 0;
+        const maxWeek = Math.max(...state.transactions.map(t => t.week), 0);
+        
+        for (let week = 1; week <= maxWeek; week++) {
+          if (state.completedWeeks.includes(week)) {
+            // Minggu yang sudah selesai, kas = 0
+            continue;
+          }
+          
+          // Hitung total tabungan di minggu ini
+          const weekSavings = state.transactions
+            .filter(t => t.week === week && t.type === "saving")
+            .reduce((sum, t) => sum + t.amount, 0);
+          
+          // Hitung total penerimaan di minggu ini
+          const weekReceiving = state.transactions
+            .filter(t => t.week === week && t.type === "receiving")
+            .reduce((sum, t) => sum + t.amount, 0);
+          
+          // Kas = tabungan - penerimaan
+          totalKas += weekSavings - weekReceiving;
+        }
+        
+        return Math.max(0, totalKas);
       },
 
       getTotalTabungan: () => {
         const state = get();
         return state.members.reduce((sum, m) => sum + m.totalSaved, 0);
+      },
+
+      completeWeek: (week) => {
+        set((state) => ({
+          completedWeeks: [...new Set([...state.completedWeeks, week])].sort((a, b) => a - b),
+        }));
+        
+        // Auto update currentWeek jika minggu yang diselesaikan adalah currentWeek
+        const state = get();
+        if (week === state.currentWeek) {
+          const calculatedWeek = state.calculateCurrentWeek();
+          if (calculatedWeek > state.currentWeek) {
+            set({ currentWeek: calculatedWeek });
+          } else {
+            set({ currentWeek: state.currentWeek + 1 });
+          }
+        }
+        
+        setTimeout(() => {
+          get().pushToServer();
+        }, 100);
+      },
+
+      uncompleteWeek: (week) => {
+        set((state) => ({
+          completedWeeks: state.completedWeeks.filter((w) => w !== week),
+        }));
+        
+        setTimeout(() => {
+          get().pushToServer();
+        }, 100);
+      },
+
+      getWeekReport: (week) => {
+        const state = get();
+        const weekTransactions = state.transactions.filter((t) => t.week === week);
+        
+        const totalSaved = weekTransactions
+          .filter((t) => t.type === "saving")
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const totalReceived = weekTransactions
+          .filter((t) => t.type === "receiving")
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const kas = Math.max(0, totalSaved - totalReceived);
+        
+        // Detail per anggota
+        const members = state.members.map((member) => {
+          const saved = weekTransactions
+            .filter((t) => t.memberId === member.id && t.type === "saving")
+            .reduce((sum, t) => sum + t.amount, 0);
+          
+          const received = weekTransactions
+            .filter((t) => t.memberId === member.id && t.type === "receiving")
+            .reduce((sum, t) => sum + t.amount, 0);
+          
+          return {
+            name: member.name,
+            saved,
+            received,
+          };
+        });
+        
+        return {
+          totalSaved,
+          totalReceived,
+          kas,
+          members,
+        };
       },
 
       calculateCurrentWeek: () => {
@@ -648,6 +746,7 @@ export const useStore = create<AppState>()(
               transactions: tempState.transactions,
               gallery: tempState.gallery,
               currentWeek: calculatedWeek, // Gunakan calculated week
+              completedWeeks: serverData.completedWeeks || [],
               savingsSchedule: mergedSchedule,
               adminEmail: tempState.adminEmail,
             });
@@ -663,12 +762,22 @@ export const useStore = create<AppState>()(
                   transactions: tempState.transactions,
                   gallery: tempState.gallery,
                   currentWeek: calculatedWeek, // Gunakan calculated week
+                  completedWeeks: serverData.completedWeeks || [],
                   savingsSchedule: mergedSchedule,
                   adminEmail: tempState.adminEmail,
                 };
                 localStorage.setItem("tabungan-kawanua-storage", JSON.stringify(parsed));
               }
             }
+            
+            // Force update currentWeek setelah sync
+            setTimeout(() => {
+              const store = get();
+              const latestCalculatedWeek = store.calculateCurrentWeek();
+              if (latestCalculatedWeek !== store.currentWeek) {
+                store.setCurrentWeek(latestCalculatedWeek);
+              }
+            }, 100);
           }
         } catch (error) {
           console.error("Error syncing with server:", error);
@@ -690,6 +799,7 @@ export const useStore = create<AppState>()(
               transactions: state.transactions,
               gallery: state.gallery,
               currentWeek: state.currentWeek,
+              completedWeeks: state.completedWeeks,
               savingsSchedule: state.savingsSchedule,
               adminEmail: state.adminEmail,
             }),
@@ -758,6 +868,7 @@ export const useStore = create<AppState>()(
         transactions: state.transactions,
         gallery: state.gallery,
         currentWeek: state.currentWeek,
+        completedWeeks: state.completedWeeks,
         savingsSchedule: state.savingsSchedule,
         adminEmail: state.adminEmail,
         adminPassword: state.adminPassword,

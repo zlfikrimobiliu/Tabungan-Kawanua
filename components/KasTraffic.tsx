@@ -2,10 +2,11 @@
 
 import { motion } from "framer-motion";
 import { useStore } from "@/store/store";
-import { TrendingUp, ArrowDownCircle, ArrowUpCircle, Info } from "lucide-react";
+import { TrendingUp, ArrowDownCircle, ArrowUpCircle, Info, CheckCircle2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { memo, useMemo, useState, useEffect } from "react";
+import WeekCompletionModal from "./WeekCompletionModal";
 import {
   BarChart,
   Bar,
@@ -18,9 +19,11 @@ import {
 } from "recharts";
 
 const KasTraffic = memo(function KasTraffic() {
-  const { transactions, getTotalKas, darkMode } = useStore();
+  const { transactions, getTotalKas, darkMode, currentWeek, completedWeeks, getWeekReport } = useStore();
   const totalKas = getTotalKas();
   const [isDark, setIsDark] = useState(false);
+  const [showWeekReport, setShowWeekReport] = useState(false);
+  const [selectedWeek, setSelectedWeek] = useState(1);
 
   useEffect(() => {
     setIsDark(darkMode ?? document.documentElement.classList.contains("dark"));
@@ -43,7 +46,7 @@ const KasTraffic = memo(function KasTraffic() {
     const weeklyData = transactions.reduce((acc, transaction) => {
       const week = transaction.week;
       if (!acc[week]) {
-        acc[week] = { week, saving: 0, receiving: 0 };
+        acc[week] = { week, saving: 0, receiving: 0, completed: completedWeeks.includes(week) };
       }
       if (transaction.type === "saving") {
         acc[week].saving += transaction.amount;
@@ -51,10 +54,10 @@ const KasTraffic = memo(function KasTraffic() {
         acc[week].receiving += transaction.amount;
       }
       return acc;
-    }, {} as Record<number, { week: number; saving: number; receiving: number }>);
+    }, {} as Record<number, { week: number; saving: number; receiving: number; completed: boolean }>);
 
     return Object.values(weeklyData).sort((a, b) => a.week - b.week);
-  }, [transactions]);
+  }, [transactions, completedWeeks]);
 
   // Memoize recent transactions
   const recentTransactions = useMemo(() => {
@@ -107,6 +110,16 @@ const KasTraffic = memo(function KasTraffic() {
             <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
               Grafik Tabungan & Penerimaan
             </h3>
+            <button
+              onClick={() => {
+                setSelectedWeek(currentWeek);
+                setShowWeekReport(true);
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              Lihat Report
+            </button>
           </div>
           <div className="w-full overflow-x-auto -mx-2 px-2">
             <ResponsiveContainer width="100%" height={280} minWidth={300}>
@@ -195,6 +208,13 @@ const KasTraffic = memo(function KasTraffic() {
                   name="Tabungan"
                   radius={[6, 6, 0, 0]}
                   strokeWidth={0}
+                  onClick={(data: any) => {
+                    if (data?.week) {
+                      setSelectedWeek(data.week);
+                      setShowWeekReport(true);
+                    }
+                  }}
+                  style={{ cursor: "pointer" }}
                 />
                 <Bar 
                   dataKey="receiving" 
@@ -202,6 +222,13 @@ const KasTraffic = memo(function KasTraffic() {
                   name="Penerimaan"
                   radius={[6, 6, 0, 0]}
                   strokeWidth={0}
+                  onClick={(data: any) => {
+                    if (data?.week) {
+                      setSelectedWeek(data.week);
+                      setShowWeekReport(true);
+                    }
+                  }}
+                  style={{ cursor: "pointer" }}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -266,6 +293,13 @@ const KasTraffic = memo(function KasTraffic() {
           )}
         </div>
       </div>
+
+      {/* Week Report Modal */}
+      <WeekCompletionModal
+        isOpen={showWeekReport}
+        onClose={() => setShowWeekReport(false)}
+        week={selectedWeek}
+      />
     </motion.div>
   );
 });

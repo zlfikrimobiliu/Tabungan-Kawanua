@@ -40,6 +40,7 @@ const defaultData = {
   transactions: [],
   gallery: [],
   currentWeek: 1,
+  completedWeeks: [],
   savingsSchedule: defaultSchedule,
   adminEmail: "fikri.mobiliu@example.com",
   lastUpdated: new Date().toISOString(),
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { members, transactions, gallery, currentWeek, savingsSchedule, adminEmail } = body;
+    const { members, transactions, gallery, currentWeek, completedWeeks, savingsSchedule, adminEmail } = body;
 
     const scheduleInput = savingsSchedule || {};
     const normalizedSchedule = {
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
       transactions: transactions !== undefined ? transactions : defaultData.transactions,
       gallery: gallery !== undefined ? gallery : defaultData.gallery,
       currentWeek: currentWeek !== undefined ? currentWeek : defaultData.currentWeek,
+      completedWeeks: completedWeeks !== undefined ? completedWeeks : defaultData.completedWeeks,
       savingsSchedule: normalizedSchedule,
       adminEmail: adminEmail !== undefined ? adminEmail : defaultData.adminEmail,
       lastUpdated: new Date().toISOString(),

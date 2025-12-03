@@ -2,10 +2,11 @@
 
 import { motion } from "framer-motion";
 import { useStore } from "@/store/store";
-import { Settings, Clock, Mail, MessageSquare, Copy, Check, UserPlus, Trash2, Info, Calendar } from "lucide-react";
+import { Settings, Clock, Mail, MessageSquare, Copy, Check, UserPlus, Trash2, Info, Calendar, CheckCircle2 } from "lucide-react";
 import { useState, memo } from "react";
 import WhatsAppTemplate from "./WhatsAppTemplate";
 import AddMemberModal from "./AddMemberModal";
+import WeekCompletionModal from "./WeekCompletionModal";
 
 const AdminPanel = memo(function AdminPanel() {
   const {
@@ -24,9 +25,11 @@ const AdminPanel = memo(function AdminPanel() {
 
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showWeekCompletion, setShowWeekCompletion] = useState(false);
   const currentReceiver = getCurrentReceiver();
   const totalAmount = getTotalAmount();
   const activeMembers = members.filter((m) => m.isActive);
+  const completedWeeks = useStore((state) => state.completedWeeks);
 
   const handleMarkReceived = async (memberId: string) => {
     const member = members.find((m) => m.id === memberId);
@@ -208,6 +211,23 @@ const AdminPanel = memo(function AdminPanel() {
           </motion.button>
         )}
 
+        {/* Week Completion Button */}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setShowWeekCompletion(true)}
+          className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-colors ${
+            completedWeeks.includes(currentWeek)
+              ? "bg-green-500 hover:bg-green-600 text-white"
+              : "bg-yellow-500 hover:bg-yellow-600 text-white"
+          }`}
+        >
+          <CheckCircle2 className="w-5 h-5" />
+          {completedWeeks.includes(currentWeek) 
+            ? `Minggu ke-${currentWeek} Sudah Selesai` 
+            : `Konfirmasi Minggu ke-${currentWeek} Selesai`}
+        </motion.button>
+
         {/* WhatsApp Template */}
         {showWhatsApp && currentReceiver && (
           <WhatsAppTemplate
@@ -264,6 +284,13 @@ const AdminPanel = memo(function AdminPanel() {
       <AddMemberModal
         isOpen={showAddMember}
         onClose={() => setShowAddMember(false)}
+      />
+
+      {/* Week Completion Modal */}
+      <WeekCompletionModal
+        isOpen={showWeekCompletion}
+        onClose={() => setShowWeekCompletion(false)}
+        week={currentWeek}
       />
     </motion.div>
   );
