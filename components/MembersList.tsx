@@ -38,6 +38,15 @@ const MembersList = memo(function MembersList() {
     );
   };
 
+  const allMembersSaved = (week: number) => {
+    const transactions = useStore.getState().transactions;
+    return activeMembers.every((m) => {
+      return transactions.some(
+        (t) => t.memberId === m.id && t.week === week && t.type === "saving"
+      );
+    });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -188,11 +197,32 @@ const MembersList = memo(function MembersList() {
                     initial={{ scale: 0.95 }}
                     animate={{ scale: 1 }}
                     whileHover={{ scale: 1.02 }}
-                    className="flex items-center justify-between p-3 bg-gradient-to-r from-red-50 to-white dark:from-red-900/30 dark:to-gray-700 rounded-lg border-2 border-red-200 dark:border-red-600"
+                    className={`flex items-center justify-between p-3 rounded-lg border-2 ${
+                      allMembersSaved(currentWeek)
+                        ? "bg-gradient-to-r from-red-50 to-white dark:from-red-900/30 dark:to-gray-700 border-red-200 dark:border-red-600"
+                        : "bg-gradient-to-r from-yellow-50 to-white dark:from-yellow-900/30 dark:to-gray-700 border-yellow-200 dark:border-yellow-600"
+                    }`}
                   >
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                      <span className="text-sm font-semibold text-red-700 dark:text-red-300">Menerima</span>
+                      <CheckCircle2 className={`w-4 h-4 ${
+                        allMembersSaved(currentWeek)
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-yellow-600 dark:text-yellow-400"
+                      }`} />
+                      <div>
+                        <span className={`text-sm font-semibold ${
+                          allMembersSaved(currentWeek)
+                            ? "text-red-700 dark:text-red-300"
+                            : "text-yellow-700 dark:text-yellow-300"
+                        }`}>
+                          Menerima
+                        </span>
+                        {!allMembersSaved(currentWeek) && (
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-0.5">
+                            Tunggu semua menabung dulu
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {isAdmin ? (
                       <motion.button
@@ -205,12 +235,21 @@ const MembersList = memo(function MembersList() {
                             useStore.getState().markReceived(member.id, currentWeek);
                           }
                         }}
+                        disabled={!allMembersSaved(currentWeek) && !received}
                         className={`${
                           received
                             ? "text-green-600 hover:text-red-600"
-                            : "text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400"
-                        } transition-colors cursor-pointer`}
-                        title={received ? "Klik untuk uncheck (batalkan menerima)" : "Klik untuk tandai sudah menerima"}
+                            : allMembersSaved(currentWeek)
+                            ? "text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400"
+                            : "text-gray-300 dark:text-gray-700 cursor-not-allowed"
+                        } transition-colors`}
+                        title={
+                          received
+                            ? "Klik untuk uncheck (batalkan menerima)"
+                            : allMembersSaved(currentWeek)
+                            ? "Klik untuk tandai sudah menerima"
+                            : "Semua anggota harus menabung dulu sebelum bisa menerima"
+                        }
                       >
                         {received ? (
                           <CheckCircle2 className="w-5 h-5" />
@@ -223,8 +262,12 @@ const MembersList = memo(function MembersList() {
                         <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                       </div>
                     ) : (
-                      <div title="Belum menerima">
-                        <Circle className="w-5 h-5 text-gray-300 dark:text-gray-600" />
+                      <div title={allMembersSaved(currentWeek) ? "Belum menerima" : "Tunggu semua menabung dulu"}>
+                        <Circle className={`w-5 h-5 ${
+                          allMembersSaved(currentWeek)
+                            ? "text-gray-300 dark:text-gray-600"
+                            : "text-yellow-300 dark:text-yellow-700"
+                        }`} />
                       </div>
                     )}
                   </motion.div>

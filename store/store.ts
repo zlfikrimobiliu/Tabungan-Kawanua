@@ -251,17 +251,34 @@ export const useStore = create<AppState>()(
       },
 
       markReceived: (memberId, week) => {
-        const member = get().members.find((m) => m.id === memberId);
+        const state = get();
+        const member = state.members.find((m) => m.id === memberId);
         if (!member) return;
 
         // Skip jika sudah received
         if (member.weeksReceived.includes(week)) return;
 
+        // Validasi: Pastikan semua anggota sudah menabung dulu
+        const activeMembers = state.members.filter((m) => m.isActive);
+        const allSaved = activeMembers.every((m) => {
+          return state.transactions.some(
+            (t) => t.memberId === m.id && t.week === week && t.type === "saving"
+          );
+        });
+
+        if (!allSaved) {
+          alert(`Tidak bisa menerima! Pastikan semua ${activeMembers.length} anggota sudah menabung terlebih dahulu.`);
+          return;
+        }
+
         // Hitung jumlah dinamis berdasarkan anggota aktif
-        const activeMembers = get().members.filter((m) => m.isActive);
-        const totalAmount = activeMembers.length * 100000; // jumlah anggota × 100rb (untuk tracking)
-        const receivedAmount = totalAmount - 100000; // Penerima hanya dapat 400rb (total - 100rb tabungan)
-        const savingsAmount = 100000; // 100rb masuk ke tabungan
+        const totalAmount = activeMembers.length * 100000; // jumlah anggota × 100rb = 500rb
+        const receivedAmount = totalAmount - 100000; // Penerima hanya dapat 400rb (karena 100rb sudah di tabungan dari proses menabung)
+
+        // Cek apakah penerima sudah menabung (harus sudah, karena validasi di atas)
+        const receiverHasSaved = state.transactions.some(
+          (t) => t.memberId === memberId && t.week === week && t.type === "saving"
+        );
 
         set((state) => ({
           members: state.members.map((m) =>
@@ -269,7 +286,7 @@ export const useStore = create<AppState>()(
               ? {
                   ...m,
                   weeksReceived: [...m.weeksReceived, week],
-                  totalSaved: m.totalSaved + savingsAmount, // Tambahkan 100rb ke tabungan
+                  // Tidak perlu tambahkan tabungan lagi, karena sudah ada dari markSaved
                 }
               : m
           ),
@@ -281,16 +298,6 @@ export const useStore = create<AppState>()(
               memberId,
               memberName: member.name,
               amount: receivedAmount, // Yang diterima: 400rb
-              week,
-              date: new Date().toISOString(),
-              status: "completed",
-            },
-            {
-              id: (Date.now() + 1).toString(),
-              type: "saving",
-              memberId,
-              memberName: member.name,
-              amount: savingsAmount, // 100rb masuk tabungan
               week,
               date: new Date().toISOString(),
               status: "completed",
@@ -308,29 +315,19 @@ export const useStore = create<AppState>()(
         const member = get().members.find((m) => m.id === memberId);
         if (!member) return;
 
-        // Cari transaction receiving dan saving untuk week ini
-        const receivingTransaction = get().transactions.find(
-          (t) => t.memberId === memberId && t.week === week && t.type === "receiving"
-        );
-        const savingTransaction = get().transactions.find(
-          (t) => t.memberId === memberId && t.week === week && t.type === "saving" && t.amount === 100000
-        );
-
+        // Hapus transaction receiving saja (tabungan tetap ada karena dari markSaved)
         set((state) => ({
           members: state.members.map((m) =>
             m.id === memberId
               ? {
                   ...m,
                   weeksReceived: m.weeksReceived.filter((w) => w !== week),
-                  totalSaved: savingTransaction ? Math.max(0, m.totalSaved - 100000) : m.totalSaved, // Kurangi 100rb dari tabungan jika ada
+                  // Tabungan tidak dikurangi karena berasal dari markSaved, bukan dari markReceived
                 }
               : m
           ),
           transactions: state.transactions.filter(
-            (t) => !(
-              (t.memberId === memberId && t.week === week && t.type === "receiving") ||
-              (t.memberId === memberId && t.week === week && t.type === "saving" && t.amount === 100000 && savingTransaction && t.id === savingTransaction.id)
-            )
+            (t) => !(t.memberId === memberId && t.week === week && t.type === "receiving")
           ),
         }));
         
