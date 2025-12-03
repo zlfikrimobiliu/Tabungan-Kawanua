@@ -68,6 +68,8 @@ export interface AppState {
   syncWithServer: () => Promise<void>;
   pushToServer: () => Promise<void>;
   getTotalKas: () => number;
+  getTotalTabungan: () => number;
+  calculateCurrentWeek: () => number;
   getNextReceiver: () => Member | null;
   getCurrentReceiver: () => Member | null;
   addGalleryItem: (item: Omit<GalleryItem, "id">) => void;
@@ -251,7 +253,9 @@ export const useStore = create<AppState>()(
 
         // Hitung jumlah dinamis berdasarkan anggota aktif
         const activeMembers = get().members.filter((m) => m.isActive);
-        const totalAmount = activeMembers.length * 100000; // jumlah anggota × 100rb
+        const totalAmount = activeMembers.length * 100000; // jumlah anggota × 100rb (untuk tracking)
+        const receivedAmount = totalAmount - 100000; // Penerima hanya dapat 400rb (total - 100rb tabungan)
+        const savingsAmount = 100000; // 100rb masuk ke tabungan
 
         set((state) => ({
           members: state.members.map((m) =>
@@ -259,6 +263,7 @@ export const useStore = create<AppState>()(
               ? {
                   ...m,
                   weeksReceived: [...m.weeksReceived, week],
+                  totalSaved: m.totalSaved + savingsAmount, // Tambahkan 100rb ke tabungan
                 }
               : m
           ),
@@ -269,7 +274,17 @@ export const useStore = create<AppState>()(
               type: "receiving",
               memberId,
               memberName: member.name,
-              amount: totalAmount,
+              amount: receivedAmount, // Yang diterima: 400rb
+              week,
+              date: new Date().toISOString(),
+              status: "completed",
+            },
+            {
+              id: (Date.now() + 1).toString(),
+              type: "saving",
+              memberId,
+              memberName: member.name,
+              amount: savingsAmount, // 100rb masuk tabungan
               week,
               date: new Date().toISOString(),
               status: "completed",
@@ -287,17 +302,29 @@ export const useStore = create<AppState>()(
         const member = get().members.find((m) => m.id === memberId);
         if (!member) return;
 
+        // Cari transaction receiving dan saving untuk week ini
+        const receivingTransaction = get().transactions.find(
+          (t) => t.memberId === memberId && t.week === week && t.type === "receiving"
+        );
+        const savingTransaction = get().transactions.find(
+          (t) => t.memberId === memberId && t.week === week && t.type === "saving" && t.amount === 100000
+        );
+
         set((state) => ({
           members: state.members.map((m) =>
             m.id === memberId
               ? {
                   ...m,
                   weeksReceived: m.weeksReceived.filter((w) => w !== week),
+                  totalSaved: savingTransaction ? Math.max(0, m.totalSaved - 100000) : m.totalSaved, // Kurangi 100rb dari tabungan jika ada
                 }
               : m
           ),
           transactions: state.transactions.filter(
-            (t) => !(t.memberId === memberId && t.week === week && t.type === "receiving")
+            (t) => !(
+              (t.memberId === memberId && t.week === week && t.type === "receiving") ||
+              (t.memberId === memberId && t.week === week && t.type === "saving" && t.amount === 100000 && savingTransaction && t.id === savingTransaction.id)
+            )
           ),
         }));
         
@@ -484,6 +511,37 @@ export const useStore = create<AppState>()(
         return totalSaved - totalReceived;
       },
 
+      getTotalTabungan: () => {
+        const state = get();
+        return state.members.reduce((sum, m) => sum + m.totalSaved, 0);
+      },
+
+      calculateCurrentWeek: () => {
+        const state = get();
+        const schedule = state.savingsSchedule;
+        
+        if (!schedule.startDate) {
+          return state.currentWeek; // Fallback ke currentWeek yang ada
+        }
+
+        const startDate = new Date(schedule.startDate);
+        const now = new Date();
+        
+        // Jika sekarang sebelum startDate, return 1
+        if (now < startDate) {
+          return 1;
+        }
+
+        // Hitung selisih hari
+        const diffTime = now.getTime() - startDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Hitung minggu ke berapa (minggu dimulai dari 1)
+        const weekNumber = Math.floor(diffDays / 7) + 1;
+        
+        return Math.max(1, weekNumber);
+      },
+
       getNextReceiver: () => {
         const state = get();
         const activeMembers = state.members.filter((m) => m.isActive);
@@ -553,14 +611,45 @@ export const useStore = create<AppState>()(
                 getNextOccurrence(serverSchedule.dayOfWeek ?? 1, serverSchedule.time ?? "09:00"),
             };
             
-            // Update state dengan data dari server
-            set({
+            // Hitung currentWeek otomatis berdasarkan tanggal
+            const tempState = {
               members: serverData.members || [],
               transactions: serverData.transactions || [],
               gallery: serverData.gallery || [],
               currentWeek: serverData.currentWeek || 1,
               savingsSchedule: mergedSchedule,
               adminEmail: serverData.adminEmail || "fikri.mobiliu@example.com",
+            };
+            
+            // Simpan state sementara untuk calculateCurrentWeek
+            const originalGet = get;
+            const tempGet = () => tempState as any;
+            
+            // Hitung currentWeek berdasarkan schedule
+            const calculatedWeek = (() => {
+              const schedule = mergedSchedule;
+              if (!schedule.startDate) {
+                return tempState.currentWeek;
+              }
+              const startDate = new Date(schedule.startDate);
+              const now = new Date();
+              if (now < startDate) {
+                return 1;
+              }
+              const diffTime = now.getTime() - startDate.getTime();
+              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+              const weekNumber = Math.floor(diffDays / 7) + 1;
+              return Math.max(1, weekNumber);
+            })();
+            
+            // Update state dengan data dari server
+            set({
+              members: tempState.members,
+              transactions: tempState.transactions,
+              gallery: tempState.gallery,
+              currentWeek: calculatedWeek, // Gunakan calculated week
+              savingsSchedule: mergedSchedule,
+              adminEmail: tempState.adminEmail,
             });
             
             // Update localStorage juga
@@ -570,12 +659,12 @@ export const useStore = create<AppState>()(
                 const parsed = JSON.parse(currentStorage);
                 parsed.state = {
                   ...parsed.state,
-                  members: serverData.members || [],
-                  transactions: serverData.transactions || [],
-                  gallery: serverData.gallery || [],
-                  currentWeek: serverData.currentWeek || 1,
+                  members: tempState.members,
+                  transactions: tempState.transactions,
+                  gallery: tempState.gallery,
+                  currentWeek: calculatedWeek, // Gunakan calculated week
                   savingsSchedule: mergedSchedule,
-                  adminEmail: serverData.adminEmail || "fikri.mobiliu@example.com",
+                  adminEmail: tempState.adminEmail,
                 };
                 localStorage.setItem("tabungan-kawanua-storage", JSON.stringify(parsed));
               }

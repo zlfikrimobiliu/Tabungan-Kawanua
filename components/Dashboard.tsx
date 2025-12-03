@@ -6,7 +6,7 @@ import StatsCard from "./StatsCard";
 import MembersList from "./MembersList";
 import KasTraffic from "./KasTraffic";
 import AdminPanel from "./AdminPanel";
-import { Shield, Users, Wallet, TrendingUp, Info } from "lucide-react";
+import { Shield, Users, Wallet, TrendingUp, Info, PiggyBank } from "lucide-react";
 import HeroTagline from "./HeroTagline";
 import AdminLoginModal from "./AdminLoginModal";
 import AdminLogoutModal from "./AdminLogoutModal";
@@ -14,10 +14,11 @@ import DarkModeToggle from "./DarkModeToggle";
 import { memo, useState } from "react";
 
 const Dashboard = memo(function Dashboard() {
-  const { getTotalKas, isAdmin, setIsAdmin, members } = useStore();
+  const { getTotalKas, getTotalTabungan, isAdmin, setIsAdmin, members } = useStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const totalKas = getTotalKas();
+  const totalTabungan = getTotalTabungan();
   const currentReceiver = useStore((state) => state.getCurrentReceiver());
   const nextReceiver = useStore((state) => state.getNextReceiver());
   const currentWeek = useStore((state) => state.currentWeek);
@@ -29,6 +30,12 @@ const Dashboard = memo(function Dashboard() {
       value: `Rp ${totalKas.toLocaleString("id-ID")}`,
       icon: Wallet,
       color: "from-green-500 to-emerald-600",
+    },
+    {
+      title: "Total Tabungan",
+      value: `Rp ${totalTabungan.toLocaleString("id-ID")}`,
+      icon: PiggyBank,
+      color: "from-blue-500 to-blue-600",
     },
     {
       title: "Minggu Ke",
@@ -158,7 +165,7 @@ const Dashboard = memo(function Dashboard() {
 
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {stats.map((stat, index) => (
           <motion.div
             key={stat.title}

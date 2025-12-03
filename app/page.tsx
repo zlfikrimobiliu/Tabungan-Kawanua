@@ -81,6 +81,13 @@ export default function Home() {
     
     // Sync dengan server terlebih dahulu
     syncWithServer().then(() => {
+      // Setelah sync, update currentWeek otomatis berdasarkan tanggal
+      const store = useStore.getState();
+      const calculatedWeek = store.calculateCurrentWeek();
+      if (calculatedWeek !== store.currentWeek) {
+        store.setCurrentWeek(calculatedWeek);
+      }
+      
       // Setelah sync, initialize data jika perlu
       const timer = setTimeout(() => {
         initializeData();
@@ -90,7 +97,14 @@ export default function Home() {
 
     // Setup interval untuk auto-sync setiap 5 detik (balance antara performa dan responsivitas)
     const syncInterval = setInterval(() => {
-      syncWithServer();
+      syncWithServer().then(() => {
+        // Update currentWeek otomatis setelah sync
+        const store = useStore.getState();
+        const calculatedWeek = store.calculateCurrentWeek();
+        if (calculatedWeek !== store.currentWeek) {
+          store.setCurrentWeek(calculatedWeek);
+        }
+      });
     }, 5000);
 
     return () => {
@@ -104,12 +118,26 @@ export default function Home() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        syncWithServer();
+        syncWithServer().then(() => {
+          // Update currentWeek otomatis setelah sync
+          const store = useStore.getState();
+          const calculatedWeek = store.calculateCurrentWeek();
+          if (calculatedWeek !== store.currentWeek) {
+            store.setCurrentWeek(calculatedWeek);
+          }
+        });
       }
     };
 
     const handleFocus = () => {
-      syncWithServer();
+      syncWithServer().then(() => {
+        // Update currentWeek otomatis setelah sync
+        const store = useStore.getState();
+        const calculatedWeek = store.calculateCurrentWeek();
+        if (calculatedWeek !== store.currentWeek) {
+          store.setCurrentWeek(calculatedWeek);
+        }
+      });
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
