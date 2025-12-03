@@ -78,6 +78,7 @@ export interface AppState {
   addGalleryItem: (item: Omit<GalleryItem, "id">) => void;
   deleteGalleryItem: (id: string) => void;
   getWeekReport: (week: number) => { totalSaved: number; totalReceived: number; kas: number; members: { name: string; saved: number; received: number }[] };
+  resetAllData: () => void; // Reset semua data ke default
 }
 
 const defaultMembers: Member[] = [
@@ -689,6 +690,55 @@ export const useStore = create<AppState>()(
         setTimeout(() => {
           get().pushToServer();
         }, 100);
+      },
+
+      resetAllData: () => {
+        const state = get();
+        
+        // Reset semua data ke default, tapi tetap simpan settings dan gallery
+        set({
+          members: defaultMembers,
+          transactions: [],
+          gallery: state.gallery, // Tetap simpan gallery
+          currentWeek: 1,
+          completedWeeks: [],
+          // Tetap simpan settings berikut:
+          savingsSchedule: state.savingsSchedule, // Tetap simpan jadwal
+          adminEmail: state.adminEmail, // Tetap simpan email admin
+          adminPassword: state.adminPassword, // Tetap simpan password
+          darkMode: state.darkMode, // Tetap simpan dark mode
+          isAdmin: state.isAdmin, // Tetap simpan status admin
+        });
+        
+        // Clear localStorage juga
+        if (typeof window !== "undefined") {
+          try {
+            const storageKey = "tabungan-kawanua-storage";
+            const stateToSave = {
+              state: {
+                members: defaultMembers,
+                transactions: [],
+                gallery: state.gallery, // Tetap simpan gallery
+                currentWeek: 1,
+                completedWeeks: [],
+                savingsSchedule: state.savingsSchedule,
+                adminEmail: state.adminEmail,
+                adminPassword: state.adminPassword,
+                isAdmin: false, // Reset isAdmin untuk keamanan
+                darkMode: state.darkMode,
+              },
+              version: 0,
+            };
+            localStorage.setItem(storageKey, JSON.stringify(stateToSave));
+          } catch (error) {
+            console.error("Failed to clear localStorage:", error);
+          }
+        }
+        
+        // Push perubahan ke server
+        setTimeout(() => {
+          get().pushToServer();
+        }, 200);
       },
 
       // Sync data dari server

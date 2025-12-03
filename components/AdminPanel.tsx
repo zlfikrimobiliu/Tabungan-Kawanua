@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useStore } from "@/store/store";
-import { Settings, Clock, Mail, MessageSquare, Copy, Check, UserPlus, Trash2, Info, Calendar, CheckCircle2 } from "lucide-react";
+import { Settings, Clock, Mail, MessageSquare, Copy, Check, UserPlus, Trash2, Info, Calendar, CheckCircle2, RotateCcw, AlertTriangle } from "lucide-react";
 import { useState, memo } from "react";
 import WhatsAppTemplate from "./WhatsAppTemplate";
 import AddMemberModal from "./AddMemberModal";
@@ -21,6 +21,7 @@ const AdminPanel = memo(function AdminPanel() {
     getTotalAmount,
     members,
     deleteMember,
+    resetAllData,
   } = useStore();
 
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -278,6 +279,55 @@ const AdminPanel = memo(function AdminPanel() {
             </div>
           </div>
         )}
+
+        {/* Reset All Data Button */}
+        <div className="mt-6 pt-6 border-t border-red-300 dark:border-red-800">
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">
+                  Reset Semua Data
+                </p>
+                <p className="text-xs text-red-700 dark:text-red-400">
+                  Tindakan ini akan menghapus semua history transaksi dan reset anggota ke default. 
+                  <strong> Tindakan ini tidak dapat dibatalkan!</strong> Gallery dan settings (jadwal, email) akan tetap tersimpan.
+                </p>
+              </div>
+            </div>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              const confirmMessage = `PERINGATAN: Tindakan ini akan menghapus SEMUA data:\n\n` +
+                `• Semua transaksi/history\n` +
+                `• Semua anggota (reset ke default)\n` +
+                `• Minggu ke-${currentWeek} (reset ke 1)\n` +
+                `• Semua konfirmasi minggu selesai\n\n` +
+                `Gallery dan settings (jadwal, email admin) akan tetap tersimpan.\n\n` +
+                `YAKIN ingin melanjutkan? Ketik "RESET" untuk konfirmasi:`;
+              
+              const userInput = prompt(confirmMessage);
+              
+              if (userInput === "RESET") {
+                if (confirm("Konfirmasi terakhir: YAKIN ingin menghapus semua data?")) {
+                  resetAllData();
+                  alert("Semua data telah direset. Halaman akan dimuat ulang...");
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 1000);
+                }
+              } else if (userInput !== null) {
+                alert("Reset dibatalkan. Anda harus mengetik 'RESET' untuk konfirmasi.");
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors shadow-md"
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>Reset Semua Data</span>
+          </motion.button>
+        </div>
       </div>
 
       {/* Add Member Modal */}
