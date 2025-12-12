@@ -5,6 +5,7 @@ import { useStore } from "@/store/store";
 import StatsCard from "./StatsCard";
 import MembersList from "./MembersList";
 import KasTraffic from "./KasTraffic";
+import SavingsReport from "./SavingsReport";
 import AdminPanel from "./AdminPanel";
 import { Shield, Users, Wallet, TrendingUp, Info, PiggyBank } from "lucide-react";
 import HeroTagline from "./HeroTagline";
@@ -189,6 +190,7 @@ const Dashboard = memo(function Dashboard() {
         <div className="space-y-6">
           {isAdmin && <AdminPanel />}
           <KasTraffic />
+          <SavingsReport />
         </div>
       </div>
 

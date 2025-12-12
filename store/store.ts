@@ -79,6 +79,8 @@ export interface AppState {
   addGalleryItem: (item: Omit<GalleryItem, "id">) => void;
   deleteGalleryItem: (id: string) => void;
   getWeekReport: (week: number) => { totalSaved: number; totalReceived: number; kas: number; members: { name: string; saved: number; received: number }[] };
+  getMemberSavingsHistory: (memberId: string) => { totalCount: number; totalAmount: number; firstSaving: { week: number; date: string; amount: number } | null; lastSaving: { week: number; date: string; amount: number } | null; weeks: { week: number; date: string; amount: number }[] };
+  getAllMembersSavingsReport: () => { memberId: string; memberName: string; totalCount: number; totalAmount: number; firstSaving: { week: number; date: string } | null; lastSaving: { week: number; date: string } | null; weeks: number[] }[];
   resetAllData: () => void; // Reset semua data ke default
 }
 
@@ -637,6 +639,86 @@ export const useStore = create<AppState>()(
           kas,
           members,
         };
+      },
+
+      getMemberSavingsHistory: (memberId) => {
+        const state = get();
+        const savingsTransactions = state.transactions
+          .filter((t) => t.memberId === memberId && t.type === "saving")
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        const totalCount = savingsTransactions.length;
+        const totalAmount = savingsTransactions.reduce((sum, t) => sum + t.amount, 0);
+        
+        const firstSaving = savingsTransactions.length > 0
+          ? {
+              week: savingsTransactions[0].week,
+              date: savingsTransactions[0].date,
+              amount: savingsTransactions[0].amount,
+            }
+          : null;
+        
+        const lastSaving = savingsTransactions.length > 0
+          ? {
+              week: savingsTransactions[savingsTransactions.length - 1].week,
+              date: savingsTransactions[savingsTransactions.length - 1].date,
+              amount: savingsTransactions[savingsTransactions.length - 1].amount,
+            }
+          : null;
+        
+        const weeks = savingsTransactions.map((t) => ({
+          week: t.week,
+          date: t.date,
+          amount: t.amount,
+        }));
+        
+        return {
+          totalCount,
+          totalAmount,
+          firstSaving,
+          lastSaving,
+          weeks,
+        };
+      },
+
+      getAllMembersSavingsReport: () => {
+        const state = get();
+        const activeMembers = state.members.filter((m) => m.isActive);
+        
+        return activeMembers.map((member) => {
+          const savingsTransactions = state.transactions
+            .filter((t) => t.memberId === member.id && t.type === "saving")
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          
+          const totalCount = savingsTransactions.length;
+          const totalAmount = savingsTransactions.reduce((sum, t) => sum + t.amount, 0);
+          
+          const firstSaving = savingsTransactions.length > 0
+            ? {
+                week: savingsTransactions[0].week,
+                date: savingsTransactions[0].date,
+              }
+            : null;
+          
+          const lastSaving = savingsTransactions.length > 0
+            ? {
+                week: savingsTransactions[savingsTransactions.length - 1].week,
+                date: savingsTransactions[savingsTransactions.length - 1].date,
+              }
+            : null;
+          
+          const weeks = savingsTransactions.map((t) => t.week);
+          
+          return {
+            memberId: member.id,
+            memberName: member.name,
+            totalCount,
+            totalAmount,
+            firstSaving,
+            lastSaving,
+            weeks,
+          };
+        });
       },
 
       calculateCurrentWeek: () => {
