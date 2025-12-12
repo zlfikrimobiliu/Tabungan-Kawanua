@@ -47,6 +47,7 @@ export interface AppState {
   adminPassword: string;
   isAdmin: boolean;
   darkMode: boolean;
+  isCurrentWeekManual: boolean; // Flag untuk menandai apakah currentWeek di-set manual oleh admin
   
   // Actions
   setMembers: (members: Member[]) => void;
@@ -62,7 +63,7 @@ export interface AppState {
   getTotalAmount: () => number; // Total amount untuk penerima (jumlah anggota aktif × 100rb)
   setSavingsSchedule: (dayOfWeek: number, time: string) => void;
   setSavingsStartDate: (date: string) => void;
-  setCurrentWeek: (week: number) => void;
+  setCurrentWeek: (week: number, isManual?: boolean) => void;
   setAdminEmail: (email: string) => void;
   setAdminPassword: (password: string) => void;
   setIsAdmin: (isAdmin: boolean) => void;
@@ -106,6 +107,7 @@ export const useStore = create<AppState>()(
       adminPassword: "", // Akan di-set dengan obfuscated default password saat pertama kali
       isAdmin: false,
       darkMode: true, // Default dark mode
+      isCurrentWeekManual: false, // Default: currentWeek dihitung otomatis
 
       setMembers: (members) => set({ members }),
       
@@ -341,21 +343,18 @@ export const useStore = create<AppState>()(
         const member = get().members.find((m) => m.id === memberId);
         if (!member) return;
 
-        // Check if already saved for this week
+        // Check if already saved for this week (tidak bisa lebih dari 100rb per orang per minggu)
         const alreadySaved = get().transactions.some(
           (t) => t.memberId === memberId && t.week === week && t.type === "saving"
         );
-        if (alreadySaved) return;
+        if (alreadySaved) {
+          // Sudah menabung untuk minggu ini, tidak bisa menabung lagi
+          return;
+        }
 
+        // Uang masuk ke KAS (via transaction), TIDAK ke tabungan individual
+        // Setiap anggota hanya bisa menabung 100rb per minggu
         set((state) => ({
-          members: state.members.map((m) =>
-            m.id === memberId
-              ? {
-                  ...m,
-                  totalSaved: m.totalSaved + 100000,
-                }
-              : m
-          ),
           transactions: [
             ...state.transactions,
             {
@@ -363,7 +362,7 @@ export const useStore = create<AppState>()(
               type: "saving",
               memberId,
               memberName: member.name,
-              amount: 100000,
+              amount: 100000, // Tetap 100rb per orang per minggu, tidak bisa lebih
               week,
               date: new Date().toISOString(),
               status: "completed",
@@ -381,15 +380,9 @@ export const useStore = create<AppState>()(
         const member = get().members.find((m) => m.id === memberId);
         if (!member) return;
 
+        // Hapus transaction saving saja (uang keluar dari KAS)
+        // TIDAK perlu update totalSaved karena uang masuk ke KAS, bukan tabungan individual
         set((state) => ({
-          members: state.members.map((m) =>
-            m.id === memberId
-              ? {
-                  ...m,
-                  totalSaved: Math.max(0, m.totalSaved - 100000),
-                }
-              : m
-          ),
           transactions: state.transactions.filter(
             (t) => !(t.memberId === memberId && t.week === week && t.type === "saving")
           ),
@@ -430,8 +423,14 @@ export const useStore = create<AppState>()(
         }, 100);
       },
 
-      setCurrentWeek: (week) => {
-        set({ currentWeek: week });
+      setCurrentWeek: (week, isManual = false) => {
+        // Jika isManual = true, berarti admin mengubah secara manual
+        // Jika isManual = false tapi isCurrentWeekManual sudah true, tetap true (jangan reset)
+        // Jika isManual = false dan isCurrentWeekManual false, berarti auto-calculation
+        set({ 
+          currentWeek: week,
+          isCurrentWeekManual: isManual ? true : get().isCurrentWeekManual
+        });
         
         // Push perubahan ke server
         setTimeout(() => {
@@ -548,14 +547,16 @@ export const useStore = create<AppState>()(
         }));
         
         // Auto update currentWeek jika minggu yang diselesaikan adalah currentWeek
+        // Tapi tetap pertahankan flag manual jika sudah di-set manual
         const state = get();
         if (week === state.currentWeek) {
           const calculatedWeek = state.calculateCurrentWeek();
-          if (calculatedWeek > state.currentWeek) {
-            set({ currentWeek: calculatedWeek });
-          } else {
-            set({ currentWeek: state.currentWeek + 1 });
-          }
+          const newWeek = calculatedWeek > state.currentWeek ? calculatedWeek : state.currentWeek + 1;
+          set({ 
+            currentWeek: newWeek,
+            // Tetap pertahankan flag manual jika sudah di-set manual
+            isCurrentWeekManual: state.isCurrentWeekManual
+          });
         }
         
         setTimeout(() => {
@@ -705,6 +706,7 @@ export const useStore = create<AppState>()(
           adminPassword: state.adminPassword, // Tetap simpan password
           darkMode: state.darkMode, // Tetap simpan dark mode
           isAdmin: state.isAdmin, // Tetap simpan status admin
+          isCurrentWeekManual: false, // Reset flag saat reset data
         });
         
         // Clear localStorage juga
@@ -723,6 +725,7 @@ export const useStore = create<AppState>()(
                 adminPassword: state.adminPassword,
                 isAdmin: false, // Reset isAdmin untuk keamanan
                 darkMode: state.darkMode,
+                isCurrentWeekManual: false,
               },
               version: 0,
             };
@@ -756,7 +759,13 @@ export const useStore = create<AppState>()(
                 getNextOccurrence(serverSchedule.dayOfWeek ?? 1, serverSchedule.time ?? "09:00"),
             };
             
-            // Hitung currentWeek otomatis berdasarkan tanggal
+            // Cek apakah currentWeek sudah di-set manual oleh admin
+            // Prioritaskan nilai dari server sebagai source of truth
+            const isManual = serverData.isCurrentWeekManual !== undefined 
+              ? serverData.isCurrentWeekManual 
+              : (get().isCurrentWeekManual || false);
+            
+            // Hitung currentWeek otomatis berdasarkan tanggal (hanya jika bukan manual)
             const tempState = {
               members: serverData.members || [],
               transactions: serverData.transactions || [],
@@ -766,36 +775,39 @@ export const useStore = create<AppState>()(
               adminEmail: serverData.adminEmail || "fikri.mobiliu@example.com",
             };
             
-            // Simpan state sementara untuk calculateCurrentWeek
-            const originalGet = get;
-            const tempGet = () => tempState as any;
-            
-            // Hitung currentWeek berdasarkan schedule
-            const calculatedWeek = (() => {
-              const schedule = mergedSchedule;
-              if (!schedule.startDate) {
-                return tempState.currentWeek;
-              }
-              const startDate = new Date(schedule.startDate);
-              const now = new Date();
-              if (now < startDate) {
-                return 1;
-              }
-              const diffTime = now.getTime() - startDate.getTime();
-              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-              const weekNumber = Math.floor(diffDays / 7) + 1;
-              return Math.max(1, weekNumber);
-            })();
+            // Jika currentWeek sudah di-set manual, gunakan nilai dari server
+            // Jika belum manual, hitung otomatis berdasarkan tanggal
+            let finalCurrentWeek = tempState.currentWeek;
+            if (!isManual) {
+              // Hitung currentWeek berdasarkan schedule
+              const calculatedWeek = (() => {
+                const schedule = mergedSchedule;
+                if (!schedule.startDate) {
+                  return tempState.currentWeek;
+                }
+                const startDate = new Date(schedule.startDate);
+                const now = new Date();
+                if (now < startDate) {
+                  return 1;
+                }
+                const diffTime = now.getTime() - startDate.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                const weekNumber = Math.floor(diffDays / 7) + 1;
+                return Math.max(1, weekNumber);
+              })();
+              finalCurrentWeek = calculatedWeek;
+            }
             
             // Update state dengan data dari server
             set({
               members: tempState.members,
               transactions: tempState.transactions,
               gallery: tempState.gallery,
-              currentWeek: calculatedWeek, // Gunakan calculated week
+              currentWeek: finalCurrentWeek,
               completedWeeks: serverData.completedWeeks || [],
               savingsSchedule: mergedSchedule,
               adminEmail: tempState.adminEmail,
+              isCurrentWeekManual: isManual, // Preserve flag dari server atau state saat ini
             });
             
             // Update localStorage juga
@@ -808,23 +820,26 @@ export const useStore = create<AppState>()(
                   members: tempState.members,
                   transactions: tempState.transactions,
                   gallery: tempState.gallery,
-                  currentWeek: calculatedWeek, // Gunakan calculated week
+                  currentWeek: finalCurrentWeek,
                   completedWeeks: serverData.completedWeeks || [],
                   savingsSchedule: mergedSchedule,
                   adminEmail: tempState.adminEmail,
+                  isCurrentWeekManual: isManual,
                 };
                 localStorage.setItem("tabungan-kawanua-storage", JSON.stringify(parsed));
               }
             }
             
-            // Force update currentWeek setelah sync
-            setTimeout(() => {
-              const store = get();
-              const latestCalculatedWeek = store.calculateCurrentWeek();
-              if (latestCalculatedWeek !== store.currentWeek) {
-                store.setCurrentWeek(latestCalculatedWeek);
-              }
-            }, 100);
+            // Force update currentWeek setelah sync (hanya jika bukan manual)
+            if (!isManual) {
+              setTimeout(() => {
+                const store = get();
+                const latestCalculatedWeek = store.calculateCurrentWeek();
+                if (latestCalculatedWeek !== store.currentWeek) {
+                  store.setCurrentWeek(latestCalculatedWeek, false);
+                }
+              }, 100);
+            }
           }
         } catch (error) {
           console.error("Error syncing with server:", error);
@@ -849,6 +864,7 @@ export const useStore = create<AppState>()(
               completedWeeks: state.completedWeeks,
               savingsSchedule: state.savingsSchedule,
               adminEmail: state.adminEmail,
+              isCurrentWeekManual: state.isCurrentWeekManual,
             }),
           });
           
@@ -921,6 +937,7 @@ export const useStore = create<AppState>()(
         adminPassword: state.adminPassword,
         isAdmin: false, // Reset isAdmin saat reload untuk keamanan
         darkMode: state.darkMode,
+        isCurrentWeekManual: state.isCurrentWeekManual,
       }),
     }
   )

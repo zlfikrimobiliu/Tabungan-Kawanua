@@ -48,14 +48,17 @@ export default function Home() {
               // Set password default jika kosong (tidak hardcoded)
               adminPassword: parsed.state.adminPassword || obfuscatePassword(DEFAULT_PASSWORD),
               darkMode: parsed.state.darkMode !== undefined ? parsed.state.darkMode : true, // Default to dark
+              isCurrentWeekManual: parsed.state.isCurrentWeekManual || false,
             });
             
-            // Force update currentWeek setelah hydrate
+            // Force update currentWeek setelah hydrate (hanya jika bukan manual)
             setTimeout(() => {
               const store = useStore.getState();
-              const calculatedWeek = store.calculateCurrentWeek();
-              if (calculatedWeek !== store.currentWeek) {
-                store.setCurrentWeek(calculatedWeek);
+              if (!store.isCurrentWeekManual) {
+                const calculatedWeek = store.calculateCurrentWeek();
+                if (calculatedWeek !== store.currentWeek) {
+                  store.setCurrentWeek(calculatedWeek, false);
+                }
               }
             }, 100);
             
@@ -91,13 +94,15 @@ export default function Home() {
     
     // Sync dengan server terlebih dahulu
     syncWithServer().then(() => {
-      // Setelah sync, force update currentWeek otomatis berdasarkan tanggal
+      // Setelah sync, force update currentWeek otomatis berdasarkan tanggal (hanya jika bukan manual)
       setTimeout(() => {
         const store = useStore.getState();
-        const calculatedWeek = store.calculateCurrentWeek();
-        // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
-        if (calculatedWeek !== store.currentWeek) {
-          store.setCurrentWeek(calculatedWeek);
+        if (!store.isCurrentWeekManual) {
+          const calculatedWeek = store.calculateCurrentWeek();
+          // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
+          if (calculatedWeek !== store.currentWeek) {
+            store.setCurrentWeek(calculatedWeek, false);
+          }
         }
       }, 200);
       
@@ -111,13 +116,15 @@ export default function Home() {
     // Setup interval untuk auto-sync setiap 5 detik (balance antara performa dan responsivitas)
     const syncInterval = setInterval(() => {
       syncWithServer().then(() => {
-        // Force update currentWeek otomatis setelah sync
+        // Force update currentWeek otomatis setelah sync (hanya jika bukan manual)
         setTimeout(() => {
           const store = useStore.getState();
-          const calculatedWeek = store.calculateCurrentWeek();
-          // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
-          if (calculatedWeek !== store.currentWeek) {
-            store.setCurrentWeek(calculatedWeek);
+          if (!store.isCurrentWeekManual) {
+            const calculatedWeek = store.calculateCurrentWeek();
+            // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
+            if (calculatedWeek !== store.currentWeek) {
+              store.setCurrentWeek(calculatedWeek, false);
+            }
           }
         }, 100);
       });
@@ -135,13 +142,15 @@ export default function Home() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         syncWithServer().then(() => {
-          // Force update currentWeek otomatis setelah sync
+          // Force update currentWeek otomatis setelah sync (hanya jika bukan manual)
           setTimeout(() => {
             const store = useStore.getState();
-            const calculatedWeek = store.calculateCurrentWeek();
-            // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
-            if (calculatedWeek !== store.currentWeek) {
-              store.setCurrentWeek(calculatedWeek);
+            if (!store.isCurrentWeekManual) {
+              const calculatedWeek = store.calculateCurrentWeek();
+              // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
+              if (calculatedWeek !== store.currentWeek) {
+                store.setCurrentWeek(calculatedWeek, false);
+              }
             }
           }, 100);
         });
@@ -150,13 +159,15 @@ export default function Home() {
 
     const handleFocus = () => {
       syncWithServer().then(() => {
-        // Force update currentWeek otomatis setelah sync
+        // Force update currentWeek otomatis setelah sync (hanya jika bukan manual)
         setTimeout(() => {
           const store = useStore.getState();
-          const calculatedWeek = store.calculateCurrentWeek();
-          // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
-          if (calculatedWeek !== store.currentWeek) {
-            store.setCurrentWeek(calculatedWeek);
+          if (!store.isCurrentWeekManual) {
+            const calculatedWeek = store.calculateCurrentWeek();
+            // Force update jika berbeda (termasuk jika calculatedWeek lebih besar)
+            if (calculatedWeek !== store.currentWeek) {
+              store.setCurrentWeek(calculatedWeek, false);
+            }
           }
         }, 100);
       });

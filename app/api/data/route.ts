@@ -43,6 +43,7 @@ const defaultData = {
   completedWeeks: [],
   savingsSchedule: defaultSchedule,
   adminEmail: "fikri.mobiliu@example.com",
+  isCurrentWeekManual: false,
   lastUpdated: new Date().toISOString(),
 };
 
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { members, transactions, gallery, currentWeek, completedWeeks, savingsSchedule, adminEmail } = body;
+    const { members, transactions, gallery, currentWeek, completedWeeks, savingsSchedule, adminEmail, isCurrentWeekManual } = body;
 
     const scheduleInput = savingsSchedule || {};
     const normalizedSchedule = {
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
       completedWeeks: completedWeeks !== undefined ? completedWeeks : defaultData.completedWeeks,
       savingsSchedule: normalizedSchedule,
       adminEmail: adminEmail !== undefined ? adminEmail : defaultData.adminEmail,
+      isCurrentWeekManual: isCurrentWeekManual !== undefined ? isCurrentWeekManual : defaultData.isCurrentWeekManual,
       lastUpdated: new Date().toISOString(),
     };
 
