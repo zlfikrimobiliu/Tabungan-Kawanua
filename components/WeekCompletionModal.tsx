@@ -35,7 +35,7 @@ const WeekCompletionModal = memo(function WeekCompletionModal({
     if (isCompleted) {
       uncompleteWeek(week);
     } else {
-      if (confirm(`Konfirmasi: Minggu ke-${week} sudah selesai?\n\nSetelah dikonfirmasi, minggu ini akan ditandai selesai dan kas akan direset.`)) {
+      if (confirm(`Konfirmasi: Minggu ke-${week} sudah selesai?\n\nSetelah dikonfirmasi, minggu ini akan ditandai selesai dan sisa setoran akan masuk ke tabungan.`)) {
         completeWeek(week);
       }
     }
@@ -117,7 +117,7 @@ const WeekCompletionModal = memo(function WeekCompletionModal({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">
-                      Total Tabungan
+                      Total Setoran
                     </p>
                     <p className="text-2xl font-bold text-blue-800 dark:text-blue-300">
                       Rp {report.totalSaved.toLocaleString("id-ID")}
@@ -133,7 +133,7 @@ const WeekCompletionModal = memo(function WeekCompletionModal({
                   </div>
                   <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                     <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-1">
-                      Sisa Kas
+                      Sisa Setoran
                     </p>
                     <p className="text-2xl font-bold text-green-800 dark:text-green-300">
                       Rp {report.kas.toLocaleString("id-ID")}
@@ -159,7 +159,7 @@ const WeekCompletionModal = memo(function WeekCompletionModal({
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                           <div className="text-right">
-                            <p className="text-gray-500 dark:text-gray-400">Tabungan</p>
+                            <p className="text-gray-500 dark:text-gray-400">Setoran</p>
                             <p className="font-semibold text-blue-600 dark:text-blue-400">
                               Rp {member.saved.toLocaleString("id-ID")}
                             </p>

@@ -26,7 +26,7 @@ const Dashboard = memo(function Dashboard() {
 
   const stats = [
     {
-      title: "Total Kas",
+      title: "Total Setoran",
       value: `Rp ${totalKas.toLocaleString("id-ID")}`,
       icon: Wallet,
       color: "from-green-500 to-emerald-600",

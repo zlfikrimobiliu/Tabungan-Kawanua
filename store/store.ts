@@ -506,20 +506,18 @@ export const useStore = create<AppState>()(
 
       getTotalKas: () => {
         const state = get();
-        const activeMembers = state.members.filter((m) => m.isActive);
-        const activeMembersCount = activeMembers.length;
-        
-        // Hitung total tabungan per minggu yang belum selesai
-        let totalKas = 0;
+        // SETORAN = Uang yang terkumpul di minggu yang BELUM selesai
+        // Setelah minggu selesai, setoran untuk minggu itu = 0 (karena sudah dipindah ke tabungan)
+        let totalSetoran = 0;
         const maxWeek = Math.max(...state.transactions.map(t => t.week), 0);
         
         for (let week = 1; week <= maxWeek; week++) {
           if (state.completedWeeks.includes(week)) {
-            // Minggu yang sudah selesai, kas = 0
+            // Minggu yang sudah selesai, setoran = 0 (sudah dipindah ke tabungan)
             continue;
           }
           
-          // Hitung total tabungan di minggu ini
+          // Hitung total setoran di minggu ini
           const weekSavings = state.transactions
             .filter(t => t.week === week && t.type === "saving")
             .reduce((sum, t) => sum + t.amount, 0);
@@ -529,16 +527,44 @@ export const useStore = create<AppState>()(
             .filter(t => t.week === week && t.type === "receiving")
             .reduce((sum, t) => sum + t.amount, 0);
           
-          // Kas = tabungan - penerimaan
-          totalKas += weekSavings - weekReceiving;
+          // Setoran = setoran - penerimaan (sisa masuk ke tabungan setelah minggu selesai)
+          totalSetoran += weekSavings - weekReceiving;
         }
         
-        return Math.max(0, totalKas);
+        return Math.max(0, totalSetoran);
       },
 
       getTotalTabungan: () => {
         const state = get();
-        return state.members.reduce((sum, m) => sum + m.totalSaved, 0);
+        // TABUNGAN = Total sisa kas dari minggu-minggu yang SUDAH SELESAI
+        // Akumulasi dari sisa kas setiap minggu yang sudah selesai
+        // Contoh: Minggu 1 selesai, sisa 100rb → masuk ke TABUNGAN
+        //         Minggu 2 selesai, sisa 100rb → TABUNGAN jadi 200rb
+        let totalTabungan = 0;
+        const maxWeek = Math.max(...state.transactions.map(t => t.week), 0);
+        
+        for (let week = 1; week <= maxWeek; week++) {
+          if (!state.completedWeeks.includes(week)) {
+            // Minggu yang belum selesai, skip (masih di SETORAN)
+            continue;
+          }
+          
+          // Hitung total setoran di minggu ini
+          const weekSavings = state.transactions
+            .filter(t => t.week === week && t.type === "saving")
+            .reduce((sum, t) => sum + t.amount, 0);
+          
+          // Hitung total penerimaan di minggu ini
+          const weekReceiving = state.transactions
+            .filter(t => t.week === week && t.type === "receiving")
+            .reduce((sum, t) => sum + t.amount, 0);
+          
+          // Sisa kas dari minggu yang sudah selesai masuk ke TABUNGAN
+          const sisaKas = weekSavings - weekReceiving;
+          totalTabungan += Math.max(0, sisaKas);
+        }
+        
+        return totalTabungan;
       },
 
       completeWeek: (week) => {

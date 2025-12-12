@@ -79,13 +79,13 @@ const KasTraffic = memo(function KasTraffic() {
             <TrendingUp className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Traffic Kas</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Traffic Setoran</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Riwayat transaksi & grafik</p>
           </div>
         </div>
       </div>
 
-      {/* Total Kas */}
+      {/* Total Setoran */}
       <motion.div
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
@@ -94,7 +94,7 @@ const KasTraffic = memo(function KasTraffic() {
       >
         <div className="flex items-center gap-2 mb-2">
           <Info className="w-4 h-4 opacity-90" />
-          <p className="text-sm opacity-90 font-medium">Total Kas Saat Ini</p>
+          <p className="text-sm opacity-90 font-medium">Total Setoran Saat Ini</p>
         </div>
         <p className="text-3xl font-bold">Rp {totalKas.toLocaleString("id-ID")}</p>
       </motion.div>

@@ -87,9 +87,38 @@ const MembersList = memo(function MembersList() {
           const isCurrentReceiver = currentReceiver?.id === member.id;
           const received = hasReceived(member.id);
           const saved = hasSaved(member.id, currentWeek);
-          const weeksToReceive =
-            Math.ceil((currentWeek - 1) / activeMembers.length) * activeMembers.length + (index + 1);
+          
+          // Hitung minggu berikutnya anggota ini akan menerima
+          // Sistem rotasi: setiap anggota menerima secara bergilir
+          // Contoh: 5 anggota, minggu 1=anggota[0], minggu 2=anggota[1], ..., minggu 6=anggota[0] lagi
+          const currentReceiverIndex = (currentWeek - 1) % activeMembers.length;
+          let weeksToReceive: number;
+          
+          if (index === currentReceiverIndex) {
+            // Anggota ini adalah penerima minggu ini
+            weeksToReceive = currentWeek;
+          } else if (index > currentReceiverIndex) {
+            // Anggota ini akan menerima di minggu-minggu berikutnya dalam siklus ini
+            // Contoh: currentWeek=2 (index 1), anggota index 2 akan menerima di minggu 3
+            weeksToReceive = currentWeek + (index - currentReceiverIndex);
+          } else {
+            // Anggota ini sudah menerima di siklus ini, akan menerima lagi di siklus berikutnya
+            // Contoh: currentWeek=2 (index 1), anggota index 0 sudah menerima di minggu 1, akan menerima lagi di minggu 6
+            weeksToReceive = currentWeek + (activeMembers.length - currentReceiverIndex) + index;
+          }
+          
           const scheduleDate = formatScheduleLabel(getWeekDate(savingsSchedule, weeksToReceive));
+          
+          // Cari minggu-minggu sebelumnya di mana anggota sudah menerima
+          const previousReceivedWeeks = member.weeksReceived
+            .filter(w => w < currentWeek)
+            .sort((a, b) => b - a); // Urutkan dari terbaru ke terlama
+          
+          // Hitung tanggal untuk minggu-minggu yang sudah diterima
+          const previousReceivedInfo = previousReceivedWeeks.map(week => ({
+            week,
+            date: formatScheduleLabel(getWeekDate(savingsSchedule, week))
+          }));
 
           return (
             <motion.div
@@ -126,9 +155,6 @@ const MembersList = memo(function MembersList() {
                         </button>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Tabungan: Rp {member.totalSaved.toLocaleString("id-ID")}
-                    </p>
                   </div>
                 </div>
                 {isCurrentReceiver && (
@@ -275,8 +301,22 @@ const MembersList = memo(function MembersList() {
               </div>
 
               {!isCurrentReceiver && (
-                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  Akan menerima pada minggu ke-{weeksToReceive} ({scheduleDate})
+                <div className="mt-3 space-y-1">
+                  {previousReceivedInfo.length > 0 && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="font-semibold">Sudah menerima:</span>{" "}
+                      {previousReceivedInfo.map((info, idx) => (
+                        <span key={info.week}>
+                          {idx > 0 && ", "}
+                          minggu ke-{info.week} ({info.date})
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    Akan menerima pada minggu ke-{weeksToReceive} ({scheduleDate})
+                    {previousReceivedInfo.length > 0 && " (penerimaan berikutnya)"}
+                  </div>
                 </div>
               )}
             </motion.div>
